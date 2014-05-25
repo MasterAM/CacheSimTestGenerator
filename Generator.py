@@ -27,21 +27,21 @@ class Generator:
     # prog = ''
     assoc = [1, 2, 4, 8, 16]
     bsizes = [8, 16, 32, 64]
-    rx = "Global Hit Rate: (?P<GlobalHR>\d+\.\d+)\n" \
-         "Instruction Hit Rate: (?P<InstructionHR>\d+\.\d+)\n" \
-         "Load Hit Rate: (?P<LoadHR>\d+\.\d+)\n" \
-         "Store Hit Rate: (?P<StoreHR>\d+\.\d+)\n" \
+    rx = "Global Hit Rate: (?P<GlobalHR>\d+\.\d+)[%]?\n" \
+         "Instruction Hit Rate: (?P<InstructionHR>\d+\.\d+)[%]?\n" \
+         "Load Hit Rate: (?P<LoadHR>\d+\.\d+)[%]?\n" \
+         "Store Hit Rate: (?P<StoreHR>\d+\.\d+)[%]?\n" \
          "Number of memory accesses: (?P<nAccess>\d+)\n" \
          "Number of misses: (?P<nMisses>\d+)\n" \
          "Number of loads: (?P<nLoads>\d+)\n" \
          "Number of stores: (?P<nStores>\d+)\n" \
-         "Number of instruction read: (?P<nInstructionReads>\d+)\n" \
+         "Number of instruction read: (?P<nInstrReads>\d+)\n" \
          "Compulsory misses: (?P<Compulsory>[-+]?\d+)\n" \
          "Capacity misses: (?P<Capacity>\d+)\n" \
          "Conflict misses: (?P<Conflict>\d+)\n" \
-         "Compulsory miss percentage: (?P<CompulsoryR>\d+\.\d+)\n" \
-         "Capacity miss percentage: (?P<CapacityR>\d+\.\d+)\n" \
-         "Conflict miss percentage: (?P<ConflictR>\d+\.\d+)"
+         "Compulsory miss percentage: (?P<CompulsoryR>\d+\.\d+)[%]?\n" \
+         "Capacity miss percentage: (?P<CapacityR>\d+\.\d+)[%]?\n" \
+         "Conflict miss percentage: (?P<ConflictR>\d+\.\d+)[%]?"
     cmd = 'cacheSim'
     doPlot = True
     doCsv = True
@@ -80,18 +80,26 @@ class Generator:
         d2 = self.graphData
 
         if self.doPlot:
-            fig1 = self.drawConfigurationGraphs(d1, 'assoc')
-            fig2 = self.drawConfigurationGraphs(d2, 'bsize')
+            # plt.figure(1)
+            fig1, leg1 = self.drawConfigurationGraphs(d1, 'assoc')
+            # plt.figure(2)
+            fig2, leg2 = self.drawConfigurationGraphs(d2, 'bsize')
             try:
                 with PdfPages('output.pdf') as pdf:
-                    pdf.savefig(figure=fig1)
-                    pdf.savefig(figure=fig2)
+                    plt.figure(1)
+                    pdf.savefig(figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
+                    plt.figure(2)
+                    pdf.savefig(figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
                     # pdf.savefig()
             except AttributeError:
                 print 'Make sure that you have matplotlib 1.3.1 or newer'
 
-            plt.savefig('assoc.png', figure=fig1)
-            plt.savefig('bsize.png', figure=fig2)
+            plt.figure(1)
+            plt.savefig('assoc.png',figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
+            plt.figure(2)
+            plt.savefig('bsize.png',figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
+            # plt.savefig('assoc.png', figure=fig1, bbox_extra_artists=[fig1.extra], bbox_inches='tight')
+            # plt.savefig('bsize.png', figure=fig2)
 
         if self.doCsv:
             self.writeCSV()
@@ -136,6 +144,7 @@ class Generator:
             return
         results = {k: Generator.num(v) for k,v in data.groupdict().iteritems()}
         return results
+
     def drawConfigurationGraphs(self, graphData, variable):
         data = [v[1] for v in graphData]
         dataConfigs = [v[0] for v in graphData]
@@ -150,7 +159,9 @@ class Generator:
         Fdata = float(Ndata)
         ind = np.arange(N)
         width = 0.35
+        # plot = plt.figure()
         fig, ax = plt.subplots()
+        # fig, ax = plot.subplot()
         colors = [cm.hot(i/Fdata,1) for i in np.arange(len(data))]
         rects = []
         legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
@@ -159,12 +170,15 @@ class Generator:
             rects.append(ax.bar([idx*(Ndata+1)*width + i*width for idx in ind], item.values(), width, color=colors[i]))
             i = i+1
         ax.set_xticks([idx*width*(Ndata+1) + Ndata*width/2 for idx in ind])
-        ax.set_xticklabels(keys, rotation=30)
-        plt.ylabel('Relative Values')
-        plt.title('Performance by {0}'.format('bwidth'))
-        plt.legend( (rects[i][0] for i in np.arange(Ndata)), legends, loc='upper center',
-                    bbox_to_anchor=(0.5, 1.05), ncol=3, fancybox=True, shadow=True)
-        return fig
+        ax.set_xticklabels(keys, rotation=70)
+        ax.set_ylabel('Normalized Values [percent]')
+        ax.set_title('Performance by {0}'.format(variable))
+        leg = ax.legend( (rects[i][0] for i in np.arange(Ndata)), legends, loc='center left',
+                    bbox_to_anchor=(0.98, 0.5), ncol=1, fancybox=True, shadow=True, prop={'size':6})
+
+        # plt.savefig(variable+'_in.png', bbox_extra_artists=[leg], bbox_inches='tight', figure=fig)
+
+        return (fig, leg)
 
 
     def getMaxVals(self, data):
@@ -179,8 +193,8 @@ if __name__ == '__main__':
     elif len(argv) == 4 and argv[1] == '--graphs':
         gen = Generator(argv[2], argv[3])
         #for test only
-        gen.assoc = [2]
-        gen.bsizes = [8]
+        # gen.assoc = [2]
+        # gen.bsizes = [8]
 
         #end test
         gen.doPlot = pltAvailable
