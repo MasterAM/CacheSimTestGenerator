@@ -8,16 +8,9 @@ import re
 import csv
 
 try:
-    print 'Trying to load charting library...'
     import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
-    from matplotlib.backends.backend_pdf import PdfPages
-    pltAvailable = True
-    print 'loaded.'
 except ImportError:
-    pltAvailable = False
-    print 'not available. Will only export CSV. Install matplotlib to generate graphs.'
+    print 'np not available. Will only export CSV. Install numpy.'
 
 KB = 1024
 MB = KB * KB
@@ -48,12 +41,14 @@ class Generator:
     def __init__(self, prog, inputFile):
         self.prog = prog
         self.inFile = inputFile
+
     @staticmethod
     def convertLbm(path):
-        with open(path+'/'+'lbm.din', "r") as infile, open(path+'/'+'lbm_fixed.din', "w") as outfile:
-            for line in infile:
-                outdata = line.split(' ')
-                outfile.write(outdata[0] + ' ' + outdata[1]+'\n')
+        with open(path+'/'+'lbm.din', "r") as infile:
+            with open(path+'/'+'lbm_fixed.din', "w") as outfile:
+                for line in infile:
+                    outdata = line.split(' ')
+                    outfile.write(outdata[0] + ' ' + outdata[1]+'\n')
 
     @staticmethod
     def num(s):
@@ -64,49 +59,22 @@ class Generator:
 
     def generateGraphs(self):
         self.cssData = []
-        self.graphData = []
         size = 64 * KB
 
         bsize = 16 * WORD
         for assoc in self.assoc:
             for unified in [False, True]:
                 self.appendStats(unified, size, bsize, assoc)
-        d1 = self.graphData
-        self.graphData = []
         assoc = 4
         for bsize in [x * WORD for x in self.bsizes]:
             for unified in [False, True]:
                 self.appendStats(unified, size, bsize, assoc)
-        d2 = self.graphData
-
-        if self.doPlot:
-            # plt.figure(1)
-            fig1, leg1 = self.drawConfigurationGraphs(d1, 'assoc')
-            # plt.figure(2)
-            fig2, leg2 = self.drawConfigurationGraphs(d2, 'bsize')
-            try:
-                with PdfPages('output.pdf') as pdf:
-                    plt.figure(1)
-                    pdf.savefig(figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
-                    plt.figure(2)
-                    pdf.savefig(figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
-                    # pdf.savefig()
-            except AttributeError:
-                print 'Make sure that you have matplotlib 1.3.1 or newer'
-
-            plt.figure(1)
-            plt.savefig('assoc.png',figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
-            plt.figure(2)
-            plt.savefig('bsize.png',figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
-            # plt.savefig('assoc.png', figure=fig1, bbox_extra_artists=[fig1.extra], bbox_inches='tight')
-            # plt.savefig('bsize.png', figure=fig2)
 
         if self.doCsv:
             self.writeCSV()
 
     def writeCSV(self, filename='results.csv'):
-        fields = self.graphData[0]
-        fields = fields[0].keys() + fields[1].keys()
+        fields = self.csvKeys
         with open(filename, 'wb') as csvfile:
             dataWriter = csv.writer(csvfile, delimiter=',',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -117,9 +85,8 @@ class Generator:
 
     def appendStats(self, unified, size, bsize, assoc):
         results = self.runTest(unified, size, bsize, assoc)
-        v = {'unified': unified, 'size': size, 'bsize': bsize, 'assoc': assoc}
-        self.graphData.append((v, results))
-        self.cssData.append(v.values() + results.values())
+        v = [unified, size,  bsize, assoc]
+        self.cssData.append(v + results)
 
 
     def runTest(self, unified, size, bsize, assoc):
@@ -142,63 +109,16 @@ class Generator:
         if data is None:
             print 'data does not match the expected format'
             return
-        results = {k: Generator.num(v) for k,v in data.groupdict().iteritems()}
+        results = [Generator.num(v) for v in data.groups()]
+        self.csvKeys = ['unified', 'size', 'bsize', 'assoc'] + data.groupdict().keys()
         return results
 
-    def drawConfigurationGraphs(self, graphData, variable):
-        data = [v[1] for v in graphData]
-        dataConfigs = [v[0] for v in graphData]
-        maxVals = self.getMaxVals(data)
-        #is the data a float (percent) or int (absolute value)
-        types = {k: isinstance(v, int) for k,v in data[0].items()}
-        keys = data[0].keys()
-        legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
-        relativeVals = [{k: v*100/maxVals[k] if types[k] else v for k,v in item.items()} for item in data]
-        N = len(keys)
-        Ndata = len(data)
-        Fdata = float(Ndata)
-        ind = np.arange(N)
-        width = 0.35
-        # plot = plt.figure()
-        fig, ax = plt.subplots()
-        # fig, ax = plot.subplot()
-        colors = [cm.hot(i/Fdata,1) for i in np.arange(len(data))]
-        rects = []
-        legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
-        i = 0
-        for item in relativeVals:
-            rects.append(ax.bar([idx*(Ndata+1)*width + i*width for idx in ind], item.values(), width, color=colors[i]))
-            i = i+1
-        ax.set_xticks([idx*width*(Ndata+1) + Ndata*width/2 for idx in ind])
-        ax.set_xticklabels(keys, rotation=70)
-        ax.set_ylabel('Normalized Values [percent]')
-        ax.set_title('Performance by {0}'.format(variable))
-        leg = ax.legend( (rects[i][0] for i in np.arange(Ndata)), legends, loc='center left',
-                    bbox_to_anchor=(0.98, 0.5), ncol=1, fancybox=True, shadow=True, prop={'size':6})
-
-        # plt.savefig(variable+'_in.png', bbox_extra_artists=[leg], bbox_inches='tight', figure=fig)
-
-        return (fig, leg)
-
-
-    def getMaxVals(self, data):
-        maxVals = {}
-        for k in data[0].keys():
-            maxVals[k] = max([v[k] for v in data])
-        return maxVals
 
 if __name__ == '__main__':
     if len(argv) == 3 and argv[1] == '--fix':
         Generator.convertLbm(argv[2])
     elif len(argv) == 4 and argv[1] == '--graphs':
         gen = Generator(argv[2], argv[3])
-        #for test only
-        # gen.assoc = [2]
-        # gen.bsizes = [8]
-
-        #end test
-        gen.doPlot = pltAvailable
-        # gen.generateGraphs()
         gen.generateGraphs()
     else:
         print '{0}: Saves you some precious time and frustration by running some tests and generating some graphs.'.format(argv[0])
