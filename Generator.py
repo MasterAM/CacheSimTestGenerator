@@ -18,6 +18,9 @@ WORD = 4
 
 class Generator:
     # prog = ''
+    dataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nAccess', 'nMisses', 'nLoads', 'nStores',
+                'nInstrReads', 'Compulsory', 'Capacity', 'Conflict', 'CompulsoryR', 'CapacityR', 'ConflictR']
+    configKeys = ['unified', 'size', 'bsize', 'assoc']
     assoc = [1, 2, 4, 8, 16]
     bsizes = [8, 16, 32, 64]
     rx = "Global Hit Rate: (?P<GlobalHR>\d+\.\d+)[%]?\n" \
@@ -41,6 +44,7 @@ class Generator:
     def __init__(self, prog, inputFile):
         self.prog = prog
         self.inFile = inputFile
+        self.csvKeys = self.configKeys + self.dataKeys
 
     @staticmethod
     def convertLbm(path):
@@ -109,8 +113,10 @@ class Generator:
         if data is None:
             print 'data does not match the expected format'
             return
-        results = [Generator.num(v) for v in data.groups()]
-        self.csvKeys = ['unified', 'size', 'bsize', 'assoc'] + data.groupdict().keys()
+        resDict = data.groupdict()
+        print self.dataKeys
+        print resDict
+        results = [Generator.num(resDict[k]) for k in self.dataKeys]
         return results
 
 
