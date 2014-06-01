@@ -16,7 +16,7 @@ A subdirectory with the relevant files will be created.
 
 On t2, switch to the appropriate branch:
 
-    $git checkout t2
+    $ git checkout t2
 
 Requirements:
 =
@@ -25,8 +25,8 @@ Requirements:
  - Matplotlib (v1.3.1 or newer) - a python plotting library (and more).
  
 Currently tested with Ububntu Linux, not with Windows (I recall Matplotlib installation was not that easy on Windows).
- 
-Not tested on T2. Let me know how it goes.
+
+On t2 it creates the CSV files only, which should allow easier comparison of results and easy generation of the graphs using a spreadsheet program.
 
 
 Status
@@ -45,7 +45,10 @@ Generates the graphs for section 3. Give it the full paths, including file names
 
 Example usage:
 
-    $ python Generator.py --graphs ../cachesim/cachesim ../lbm.din
+    $ python Generator.py --graphs ../cachesim/cacheSim ../lbm.din
+
+On t2, this will run the simulator with all of the required configuration create a csv file called `results.csv` in the current directory.
+On a system with Matplotlib 1.3.1+ installed, this will also generate graphs that are much more elaborate than required.
 
 Bugs
 =
