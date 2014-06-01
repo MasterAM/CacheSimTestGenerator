@@ -114,8 +114,6 @@ class Generator:
             print 'data does not match the expected format'
             return
         resDict = data.groupdict()
-        print self.dataKeys
-        print resDict
         results = [Generator.num(resDict[k]) for k in self.dataKeys]
         return results
 
