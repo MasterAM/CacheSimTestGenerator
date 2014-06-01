@@ -24,7 +24,9 @@ MB = KB * KB
 WORD = 4
 
 class Generator:
-    # prog = ''
+    dataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nAccess', 'nMisses', 'nLoads', 'nStores',
+                'nInstrReads', 'Compulsory', 'Capacity', 'Conflict', 'CompulsoryR', 'CapacityR', 'ConflictR']
+    configKeys = ['unified', 'size', 'bsize', 'assoc']
     assoc = [1, 2, 4, 8, 16]
     bsizes = [8, 16, 32, 64]
     rx = "Global Hit Rate: (?P<GlobalHR>\d+\.\d+)[%]?\n" \
@@ -48,6 +50,7 @@ class Generator:
     def __init__(self, prog, inputFile):
         self.prog = prog
         self.inFile = inputFile
+        self.csvKeys = self.configKeys + self.dataKeys
     @staticmethod
     def convertLbm(path):
         with open(path+'/'+'lbm.din', "r") as infile, open(path+'/'+'lbm_fixed.din', "w") as outfile:
@@ -105,8 +108,7 @@ class Generator:
             self.writeCSV()
 
     def writeCSV(self, filename='results.csv'):
-        fields = self.graphData[0]
-        fields = fields[0].keys() + fields[1].keys()
+        fields = self.csvKeys
         with open(filename, 'wb') as csvfile:
             dataWriter = csv.writer(csvfile, delimiter=',',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -119,7 +121,7 @@ class Generator:
         results = self.runTest(unified, size, bsize, assoc)
         v = {'unified': unified, 'size': size, 'bsize': bsize, 'assoc': assoc}
         self.graphData.append((v, results))
-        self.cssData.append(v.values() + results.values())
+        self.cssData.append([unified, size, bsize, assoc] + [results[v] for v in self.dataKeys])
 
 
     def runTest(self, unified, size, bsize, assoc):
@@ -153,7 +155,7 @@ class Generator:
         types = {k: isinstance(v, int) for k,v in data[0].items()}
         keys = data[0].keys()
         legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
-        relativeVals = [{k: v*100/maxVals[k] if types[k] else v for k,v in item.items()} for item in data]
+        relativeVals = [{k: (v/maxVals[k] if maxVals[k] != 0 else 0.0) if types[k] else v for k,v in item.items()} for item in data]
         N = len(keys)
         Ndata = len(data)
         Fdata = float(Ndata)
