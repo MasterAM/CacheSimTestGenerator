@@ -26,6 +26,9 @@ WORD = 4
 class Generator:
     dataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nAccess', 'nMisses', 'nLoads', 'nStores',
                 'nInstrReads', 'Compulsory', 'Capacity', 'Conflict', 'CompulsoryR', 'CapacityR', 'ConflictR']
+    reducedDataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nMisses', 'CompulsoryR', 'CapacityR',
+                       'ConflictR']
+    minimalDataKeys = ['GlobalHR','Compulsory', 'Capacity', 'Conflict']
     configKeys = ['unified', 'size', 'bsize', 'assoc']
     assoc = [1, 2, 4, 8, 16]
     bsizes = [8, 16, 32, 64]
@@ -84,23 +87,29 @@ class Generator:
 
         if self.doPlot:
             # plt.figure(1)
-            fig1, leg1 = self.drawConfigurationGraphs(d1, 'assoc')
-            # plt.figure(2)
-            fig2, leg2 = self.drawConfigurationGraphs(d2, 'bsize')
+            fig = []
+            leg = []
+
+            for featureSet in [self.dataKeys, self.reducedDataKeys, self.minimalDataKeys]:
+                for variable in ['bsize', 'assoc']:
+                    tempfig, templeg = self.drawConfigurationGraphs(d1, variable, featureSet)
+                    fig.append(tempfig)
+                    leg.append(templeg)
             try:
                 with PdfPages('output.pdf') as pdf:
-                    plt.figure(1)
-                    pdf.savefig(figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
-                    plt.figure(2)
-                    pdf.savefig(figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
-                    # pdf.savefig()
+                    for i in range(0, len(fig)):
+                        plt.figure(i+1)
+                        pdf.savefig(figure=fig[i], bbox_extra_artists=[leg[i]], bbox_inches='tight')
             except AttributeError:
                 print 'Make sure that you have matplotlib 1.3.1 or newer'
 
-            plt.figure(1)
-            plt.savefig('assoc.png',figure=fig1, bbox_extra_artists=[leg1], bbox_inches='tight')
-            plt.figure(2)
-            plt.savefig('bsize.png',figure=fig2, bbox_extra_artists=[leg2], bbox_inches='tight')
+            i = 0
+            for featureSet in ['dataKeys', 'reducedDataKeys', 'minimalDataKeys']:
+                for variable in ['bsize', 'assoc']:
+                    plt.figure(i+1)
+                    plt.savefig('{0}_{1}.png'.format(variable, featureSet), figure=fig[i], bbox_extra_artists=[leg[i]], bbox_inches='tight')
+                    i = i+1
+
             # plt.savefig('assoc.png', figure=fig1, bbox_extra_artists=[fig1.extra], bbox_inches='tight')
             # plt.savefig('bsize.png', figure=fig2)
 
@@ -147,15 +156,18 @@ class Generator:
         results = {k: Generator.num(v) for k,v in data.groupdict().iteritems()}
         return results
 
-    def drawConfigurationGraphs(self, graphData, variable):
-        data = [v[1] for v in graphData]
+    def drawConfigurationGraphs(self, graphData, variable, values=minimalDataKeys, normalize = True):
+        data = [{k:v1 for k,v1 in v[1].items() if k in values} for v in graphData]
         dataConfigs = [v[0] for v in graphData]
         maxVals = self.getMaxVals(data)
         #is the data a float (percent) or int (absolute value)
         types = {k: isinstance(v, int) for k,v in data[0].items()}
         keys = data[0].keys()
-        legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
-        relativeVals = [{k: (v/maxVals[k] if maxVals[k] != 0 else 0.0) if types[k] else v for k,v in item.items()} for item in data]
+        if normalize:
+            relativeVals = [{k: (v/maxVals[k] if maxVals[k] != 0 else 0.0) if types[k] else v for k,v in item.items()} for item in data]
+        else:
+            relativeVals = data
+
         N = len(keys)
         Ndata = len(data)
         Fdata = float(Ndata)
@@ -173,7 +185,7 @@ class Generator:
             i = i+1
         ax.set_xticks([idx*width*(Ndata+1) + Ndata*width/2 for idx in ind])
         ax.set_xticklabels(keys, rotation=70)
-        ax.set_ylabel('Normalized Values [percent]')
+        ax.set_ylabel('Normalized Values')
         ax.set_title('Performance by {0}'.format(variable))
         leg = ax.legend( (rects[i][0] for i in np.arange(Ndata)), legends, loc='center left',
                     bbox_to_anchor=(0.98, 0.5), ncol=1, fancybox=True, shadow=True, prop={'size':6})
