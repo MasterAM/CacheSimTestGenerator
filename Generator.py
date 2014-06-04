@@ -26,8 +26,8 @@ WORD = 4
 class Generator:
     dataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nAccess', 'nMisses', 'nLoads', 'nStores',
                 'nInstrReads', 'Compulsory', 'Capacity', 'Conflict', 'CompulsoryR', 'CapacityR', 'ConflictR']
-    reducedDataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nMisses', 'CompulsoryR', 'CapacityR',
-                       'ConflictR']
+    reducedDataKeys = ['GlobalHR', 'InstructionHR', 'LoadHR', 'StoreHR', 'nMisses', 'Compulsory', 'Capacity',
+                       'Conflict']
     minimalDataKeys = ['GlobalHR','Compulsory', 'Capacity', 'Conflict']
     configKeys = ['unified', 'size', 'bsize', 'assoc']
     assoc = [1, 2, 4, 8, 16]
@@ -72,18 +72,19 @@ class Generator:
         self.cssData = []
         self.graphData = []
         size = 64 * KB
-
+        graphData = {}
         bsize = 16 * WORD
         for assoc in self.assoc:
             for unified in [False, True]:
                 self.appendStats(unified, size, bsize, assoc)
-        d1 = self.graphData
+
+        graphData['assoc'] = self.graphData
         self.graphData = []
         assoc = 4
         for bsize in [x * WORD for x in self.bsizes]:
             for unified in [False, True]:
                 self.appendStats(unified, size, bsize, assoc)
-        d2 = self.graphData
+        graphData['bsize'] = self.graphData
 
         if self.doPlot:
             # plt.figure(1)
@@ -92,7 +93,7 @@ class Generator:
 
             for featureSet in [self.dataKeys, self.reducedDataKeys, self.minimalDataKeys]:
                 for variable in ['bsize', 'assoc']:
-                    tempfig, templeg = self.drawConfigurationGraphs(d1, variable, featureSet)
+                    tempfig, templeg = self.drawConfigurationGraphs(graphData[variable], variable, featureSet)
                     fig.append(tempfig)
                     leg.append(templeg)
             try:
@@ -156,15 +157,14 @@ class Generator:
         results = {k: Generator.num(v) for k,v in data.groupdict().iteritems()}
         return results
 
-    def drawConfigurationGraphs(self, graphData, variable, values=minimalDataKeys, normalize = True):
-        data = [{k:v1 for k,v1 in v[1].items() if k in values} for v in graphData]
+    def drawConfigurationGraphs(self, graphData, variable, keys=minimalDataKeys, normalize = True):
+        data = [{k:v1 for k,v1 in v[1].items() if k in keys} for v in graphData]
         dataConfigs = [v[0] for v in graphData]
         maxVals = self.getMaxVals(data)
         #is the data a float (percent) or int (absolute value)
-        types = {k: isinstance(v, int) for k,v in data[0].items()}
-        keys = data[0].keys()
+        isIntType = {k: isinstance(v, int) for k,v in data[0].items()}
         if normalize:
-            relativeVals = [{k: (v/maxVals[k] if maxVals[k] != 0 else 0.0) if types[k] else v for k,v in item.items()} for item in data]
+            relativeVals = [{k: (v*1.0/maxVals[k] if maxVals[k] != 0 else 0.0) if isIntType[k] else v for k,v in item.items()} for item in data]
         else:
             relativeVals = data
 
@@ -181,7 +181,7 @@ class Generator:
         legends = ['{0}: {1}, unified: {2}'.format(variable, item[variable], item['unified']) for item in dataConfigs]
         i = 0
         for item in relativeVals:
-            rects.append(ax.bar([idx*(Ndata+1)*width + i*width for idx in ind], item.values(), width, color=colors[i]))
+            rects.append(ax.bar([idx*(Ndata+1)*width + i*width for idx in ind], [item[k] for k in keys], width, color=colors[i]))
             i = i+1
         ax.set_xticks([idx*width*(Ndata+1) + Ndata*width/2 for idx in ind])
         ax.set_xticklabels(keys, rotation=70)
